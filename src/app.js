@@ -65,7 +65,8 @@ function resizeCanvasView() {
   zoom = Math.max(1, Math.min(32, zoom || fit));
   const displayScale = zoom === 0 ? fit : zoom;
   renderer.setDisplaySize(doc.width*displayScale, doc.height*displayScale, displayScale);
-  $("zoomLabel").textContent = `${Math.round(displayScale*100)}%`;
+  $("zoomSlider").value = displayScale;
+  $("fitBtn").textContent = `${Math.round(displayScale*100)}%`;
 }
 function renderLayers() {
   const list = $("layerList"); list.innerHTML = "";
@@ -77,12 +78,17 @@ function renderLayers() {
     const name = document.createElement("button"); name.className="layer-name"; name.textContent=layer.name; name.onclick=()=>{doc.activeLayerIndex=i;renderLayers();updateLabels();};
     row.append(eye,name); list.append(row);
   });
-  updateLabels();
+  $("activeLayerCard").querySelector("b").textContent = doc.activeLayerIndex+1;
+  $("layerStatus").textContent = `Слой ${doc.activeLayerIndex+1} / ${doc.layers.length}`;
+  const preview = $("activeLayerCard").querySelector(".mini-art");
+  const composite = doc.compositeCanvas();
+  preview.style.backgroundImage = `url(${composite.toDataURL("image/png")})`;
+  preview.textContent = "";
 }
 function saveProject() {
   const data = doc.serialize(projectName, palette);
   const blob = new Blob([JSON.stringify(data)], {type:"application/json"});
-  downloadBlob(blob, `${safeName(projectName)}.chibiki`);
+  downloadBlob(blob, `${safeName(projectName)}.chib`);
   localStorage.setItem("chibiki-autosave", JSON.stringify(data));
   toast("Проект сохранён");
 }
@@ -99,14 +105,11 @@ function switchTool(tool) {
   editor.setTool(tool);
   document.querySelectorAll("[data-tool]").forEach(b=>b.classList.toggle("active",b.dataset.tool===tool));
 }
-function switchPanel(name) {
-  document.querySelectorAll(".panel-tab").forEach(b=>b.classList.toggle("active",b.dataset.panel===name));
-  ["palette","layers","settings"].forEach(p=>$(`${p}Panel`).classList.toggle("hidden",p!==name));
-  if(innerWidth<=760) $("inspector")?.classList.add("mobile-open");
-}
+function openDialog(id){$(id).showModal();}
+
 
 document.querySelectorAll("[data-tool]").forEach(b=>b.addEventListener("click",()=>switchTool(b.dataset.tool)));
-document.querySelectorAll(".panel-tab").forEach(b=>b.addEventListener("click",()=>switchPanel(b.dataset.panel)));
+
 $("colorInput").addEventListener("input",e=>setColor(e.target.value));
 $("addColorBtn").onclick=()=>{if(!palette.includes(currentColor))palette.push(currentColor);renderPalette();toast("Цвет добавлен");};
 $("savePaletteBtn").onclick=()=>{localStorage.setItem("chibiki-palette",JSON.stringify(palette));toast("Палитра сохранена");};
@@ -114,33 +117,49 @@ $("extractBtn").onclick=()=>$("imageInput").click();
 $("imageInput").onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const colors=await extractPalette(file,16);palette=[...new Set([...colors,...palette])].slice(0,32);renderPalette();toast("Палитра извлечена");}catch{toast("Не удалось прочитать изображение");}e.target.value="";};
 $("undoBtn").onclick=()=>{doc.undo();renderer.render();};
 $("redoBtn").onclick=()=>{doc.redo();renderer.render();};
-$("addLayerBtn").onclick=()=>{doc.addLayer();doc.markDirty();renderLayers();renderer.render();};
 $("duplicateLayerBtn").onclick=()=>{doc.duplicateLayer();doc.markDirty();renderLayers();renderer.render();};
 $("deleteLayerBtn").onclick=()=>{if(doc.layers.length>1){doc.deleteLayer();doc.markDirty();renderLayers();renderer.render();}else toast("Нужен хотя бы один слой");};
 $("brushSize").oninput=e=>{editor.brushSize=+e.target.value;$("brushSizeLabel").textContent=`${editor.brushSize} px`;};
 $("gridToggle").onchange=e=>{showGrid=e.target.checked;renderer.setGrid(showGrid);};
-$("gridBtn").onclick=()=>{showGrid=!showGrid;$("gridToggle").checked=showGrid;$("gridBtn").classList.toggle("selected",showGrid);renderer.setGrid(showGrid);};
+$("gridBtn").onclick=()=>{showGrid=!showGrid;$("gridToggle").checked=showGrid;$("gridBtn").classList.toggle("active",showGrid);renderer.setGrid(showGrid);};
 $("checkerToggle").onchange=e=>renderer.setChecker(e.target.checked);
-$("zoomIn").onclick=()=>{zoom=Math.min(32,(zoom||fitScale())+2);resizeCanvasView();};
-$("zoomOut").onclick=()=>{zoom=Math.max(1,(zoom||fitScale())-2);resizeCanvasView();};
-$("fitBtn").onclick=()=>{zoom=0;resizeCanvasView();};
+$("zoomIn").onclick=()=>{zoom=Math.min(32,(zoom||fitScale())+1);resizeCanvasView();};
+$("zoomOut").onclick=()=>{zoom=Math.max(1,(zoom||fitScale())-1);resizeCanvasView();};
+$("zoomSlider").oninput=e=>{zoom=+e.target.value;resizeCanvasView();};
+$("fitBtn").onclick=()=>{zoom=fitScale();resizeCanvasView();};
 $("resizeBtn").onclick=()=>{const w=clamp(+ $("widthInput").value,8,256),h=clamp(+$("heightInput").value,8,256);doc.resize(w,h);renderer.resize();updateLabels();renderer.render();toast("Размер холста изменён");};
 document.querySelectorAll("[data-size]").forEach(b=>b.onclick=()=>{const [w,h]=b.dataset.size.split("x").map(Number);$("widthInput").value=w;$("heightInput").value=h;document.querySelectorAll("[data-size]").forEach(x=>x.classList.toggle("selected",x===b));});
-$("exportPngBtn").onclick=exportPng;
-$("exportProjectBtn").onclick=saveProject;
-$("saveBtn").onclick=saveProject;
+$("saveBtn").onclick=()=>openDialog("menuDialog");
 $("projectInput").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{loadProject(JSON.parse(await f.text()));}catch{toast("Файл проекта повреждён или имеет неверный формат");}e.target.value="";};
-$("newBtn").onclick=()=>$("newDialog").showModal();
 $("menuBtn").onclick=()=>$("menuDialog").showModal();
 $("closeMenu").onclick=()=>$("menuDialog").close();
 $("menuNew").onclick=()=>{$("menuDialog").close();$("newDialog").showModal();};
-$("menuImport").onclick=()=>{$("menuDialog").close();$("imageInput").click();};
-$("menuExport").onclick=()=>{$("menuDialog").close();exportPng();};
+$("menuImport").onclick=()=>{$("menuDialog").close();$("projectInput").click();};
+$("menuPng").onclick=()=>{$("menuDialog").close();exportPng();};
+$("menuExport").onclick=()=>{$("menuDialog").close();saveProject();};
 $("createProjectBtn").onclick=e=>{e.preventDefault();projectName=$("newName").value.trim()||"Мой чибик";const w=clamp(+$("newWidth").value,8,256),h=clamp(+$("newHeight").value,8,256);doc.reset(w,h);$("newDialog").close();renderer.resize();updateLabels();renderer.render();toast("Новый холст создан");};
-$("mobilePanelBtn").onclick=()=>{$("inspector").classList.toggle("mobile-open");};
+$("renameBtn").onclick=()=>{$("renameInput").value=projectName;openDialog("renameDialog");};
+$("renameSave").onclick=e=>{e.preventDefault();projectName=$("renameInput").value.trim()||"Чибик";$("renameDialog").close();updateLabels();toast("Название изменено");};
+$("paletteExpand").onclick=()=>openDialog("paletteDialog");
+$("closePalette").onclick=()=>$("paletteDialog").close();
+$("layersOpen").onclick=()=>openDialog("layersDialog");
+$("closeLayers").onclick=()=>$("layersDialog").close();
+$("moreToolsBtn").onclick=()=>openDialog("settingsDialog");
+$("closeSettings").onclick=()=>$("settingsDialog").close();
+$("playStub").onclick=()=>toast("Покадровая анимация пока не включена");
+$("activeLayerCard").onclick=()=>openDialog("layersDialog");
+$("addLayerBtn").onclick=()=>{doc.addLayer();doc.markDirty();renderLayers();renderer.render();};
 $("canvasWrap").addEventListener("pointermove",e=>{const p=renderer.pointerToPixel(e);$("coordsLabel").textContent=p?`x: ${p.x}  y: ${p.y}`:"x: —  y: —";});
 window.addEventListener("resize",resizeCanvasView);
 window.addEventListener("keydown",e=>{if(e.target.matches("input"))return;if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();e.shiftKey?doc.redo():doc.undo();renderer.render();return;}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="s"){e.preventDefault();saveProject();return;}const keys={pencil:"p",eraser:"e",fill:"g",eyedropper:"i",line:"l",rect:"u"};const match=Object.entries(keys).find(([,k])=>k===e.key.toLowerCase());if(match)switchTool(match[0]);});
 window.addEventListener("beforeunload",()=>{try{localStorage.setItem("chibiki-autosave",JSON.stringify(doc.serialize(projectName,palette)));}catch{}});
 try{const saved=JSON.parse(localStorage.getItem("chibiki-autosave")||"null");if(saved)loadProject(saved);else{const p=JSON.parse(localStorage.getItem("chibiki-palette")||"null");if(p)palette=p;setColor(currentColor);updateLabels();renderer.render();}}catch{setColor(currentColor);updateLabels();renderer.render();}
 function clamp(n,min,max){return Math.max(min,Math.min(max,Number.isFinite(n)?n:min));}
+
+// Keep the editor viewport fixed and suppress browser gestures over the workspace.
+document.addEventListener("gesturestart", e=>e.preventDefault(), {passive:false});
+document.addEventListener("gesturechange", e=>e.preventDefault(), {passive:false});
+document.addEventListener("gestureend", e=>e.preventDefault(), {passive:false});
+document.addEventListener("contextmenu", e=>e.preventDefault());
+document.addEventListener("touchmove", e=>{if(!e.target.closest("input,dialog"))e.preventDefault();},{passive:false});
+window.addEventListener("wheel", e=>{if(e.ctrlKey)e.preventDefault();},{passive:false});
