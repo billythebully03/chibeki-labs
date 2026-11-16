@@ -12,6 +12,10 @@ let projectName = "Безымянный чибик";
 let showGrid = true;
 let zoom = 0;
 let toastTimer;
+let referenceData = null;
+let referenceImage = null;
+let referenceOpacity = 0.35;
+let referenceVisible = true;
 
 const starterPalette = ["#171923","#303548","#596078","#9298ad","#f2f1f6","#f2b84b","#e78b54","#d85f68","#9b6bb0","#6e9ac2","#75b99b","#b7c878","#6a453f","#e9c477","#f6d9a8","#ffffff"];
 let palette = [...starterPalette];
@@ -87,6 +91,7 @@ function renderLayers() {
 }
 function saveProject() {
   const data = doc.serialize(projectName, palette);
+  data.reference = referenceData ? { data: referenceData, opacity: referenceOpacity, visible: referenceVisible } : null;
   const blob = new Blob([JSON.stringify(data)], {type:"application/json"});
   downloadBlob(blob, `${safeName(projectName)}.chib`);
   localStorage.setItem("chibiki-autosave", JSON.stringify(data));
@@ -98,7 +103,14 @@ function exportPng() {
   canvas.toBlob(blob => { if(blob) downloadBlob(blob, `${safeName(projectName)}.png`); });
 }
 function loadProject(data) {
-  doc.load(data); projectName=data.name||"Импортированный чибик"; palette=data.palette||starterPalette;
+  doc.load(data);
+  referenceData = data.reference?.data || null;
+  referenceOpacity = data.reference?.opacity ?? 0.35;
+  referenceVisible = data.reference?.visible !== false;
+  $("referenceOpacity").value = Math.round(referenceOpacity * 100);
+  $("referenceOpacityLabel").textContent = `${Math.round(referenceOpacity * 100)}%`;
+  $("referenceVisible").checked = referenceVisible;
+  applyReference(); projectName=data.name||"Импортированный чибик"; palette=data.palette||starterPalette;
   setColor(palette[5]||"#f2b84b"); renderer.resize(); updateLabels(); renderer.render(); toast("Проект открыт");
 }
 function switchTool(tool) {
@@ -149,10 +161,58 @@ $("closeSettings").onclick=()=>$("settingsDialog").close();
 $("playStub").onclick=()=>toast("Покадровая анимация пока не включена");
 $("activeLayerCard").onclick=()=>openDialog("layersDialog");
 $("addLayerBtn").onclick=()=>{doc.addLayer();doc.markDirty();renderLayers();renderer.render();};
+function applyReference() {
+  if (!referenceData) {
+    referenceImage = null;
+    renderer.setReference(null, referenceOpacity, false);
+    $("referencePreview").textContent = "Референс не прикреплён";
+    return;
+  }
+  const image = new Image();
+  image.onload = () => {
+    referenceImage = image;
+    renderer.setReference(image, referenceOpacity, referenceVisible);
+    $("referencePreview").innerHTML = "";
+    const thumb = document.createElement("img"); thumb.src = referenceData; thumb.alt = "Прикреплённый референс";
+    $("referencePreview").append(thumb);
+  };
+  image.onerror = () => toast("Не удалось загрузить референс");
+  image.src = referenceData;
+}
+$("referenceBtn").onclick = () => openDialog("referenceDialog");
+$("closeReference").onclick = () => $("referenceDialog").close();
+$("attachReference").onclick = () => $("referenceInput").click();
+$("referenceInput").onchange = e => {
+  const file = e.target.files?.[0]; if (!file) return;
+  if (!file.type.startsWith("image/")) { toast("Выбери изображение"); return; }
+  const reader = new FileReader();
+  reader.onload = () => {
+    referenceData = reader.result;
+    referenceOpacity = Number($("referenceOpacity").value) / 100;
+    referenceVisible = true; $("referenceVisible").checked = true;
+    applyReference();
+    try { localStorage.setItem("chibiki-autosave", JSON.stringify({...doc.serialize(projectName,palette),reference:{data:referenceData,opacity:referenceOpacity,visible:true}})); } catch { toast("Изображение слишком большое для автосохранения; экспортируй .chib"); }
+    toast("Референс прикреплён");
+  };
+  reader.readAsDataURL(file); e.target.value = "";
+};
+$("referenceOpacity").oninput = e => {
+  referenceOpacity = Number(e.target.value) / 100;
+  $("referenceOpacityLabel").textContent = `${e.target.value}%`;
+  renderer.setReference(referenceImage, referenceOpacity, referenceVisible);
+};
+$("referenceVisible").onchange = e => { referenceVisible = e.target.checked; renderer.setReference(referenceImage, referenceOpacity, referenceVisible); };
+$("removeReference").onclick = () => {
+  referenceData = null; referenceImage = null; renderer.setReference(null, referenceOpacity, false);
+  $("referencePreview").textContent = "Референс не прикреплён";
+  try { localStorage.setItem("chibiki-autosave", JSON.stringify({...doc.serialize(projectName,palette),reference:null})); } catch {}
+  toast("Референс удалён");
+};
+
 $("canvasWrap").addEventListener("pointermove",e=>{const p=renderer.pointerToPixel(e);$("coordsLabel").textContent=p?`x: ${p.x}  y: ${p.y}`:"x: —  y: —";});
 window.addEventListener("resize",resizeCanvasView);
 window.addEventListener("keydown",e=>{if(e.target.matches("input"))return;if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();e.shiftKey?doc.redo():doc.undo();renderer.render();return;}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="s"){e.preventDefault();saveProject();return;}const keys={pencil:"p",eraser:"e",fill:"g",eyedropper:"i",line:"l",rect:"u"};const match=Object.entries(keys).find(([,k])=>k===e.key.toLowerCase());if(match)switchTool(match[0]);});
-window.addEventListener("beforeunload",()=>{try{localStorage.setItem("chibiki-autosave",JSON.stringify(doc.serialize(projectName,palette)));}catch{}});
+window.addEventListener("beforeunload",()=>{try{localStorage.setItem("chibiki-autosave",JSON.stringify({...doc.serialize(projectName,palette),reference:referenceData?{data:referenceData,opacity:referenceOpacity,visible:referenceVisible}:null}));}catch{}});
 try{const saved=JSON.parse(localStorage.getItem("chibiki-autosave")||"null");if(saved)loadProject(saved);else{const p=JSON.parse(localStorage.getItem("chibiki-palette")||"null");if(p)palette=p;setColor(currentColor);updateLabels();renderer.render();}}catch{setColor(currentColor);updateLabels();renderer.render();}
 function clamp(n,min,max){return Math.max(min,Math.min(max,Number.isFinite(n)?n:min));}
 
