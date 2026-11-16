@@ -1,0 +1,22 @@
+export class PixelDocument {
+  constructor(width,height){this.reset(width,height);this.history=[];this.future=[];this.historyLimit=40;}
+  reset(width,height){this.width=width;this.height=height;this.layers=[this.makeLayer("Слой 1")];this.activeLayerIndex=0;this.history=[];this.future=[];this.snapshot();}
+  makeLayer(name){return {id:crypto.randomUUID?.()||String(Date.now()+Math.random()),name,visible:true,locked:false,pixels:new Uint8ClampedArray(this.width*this.height*4)};}
+  get activeLayer(){return this.layers[this.activeLayerIndex];}
+  markDirty(){this.snapshot();}
+  index(x,y){return (y*this.width+x)*4;}
+  setPixel(x,y,color,erase=false){if(x<0||y<0||x>=this.width||y>=this.height||this.activeLayer.locked)return;const i=this.index(x,y);if(erase)this.activeLayer.pixels.fill(0,i,i+4);else{this.activeLayer.pixels[i]=color[0];this.activeLayer.pixels[i+1]=color[1];this.activeLayer.pixels[i+2]=color[2];this.activeLayer.pixels[i+3]=255;}}
+  getPixel(x,y,layer=this.activeLayer){const i=this.index(x,y);return Array.from(layer.pixels.slice(i,i+4));}
+  floodFill(x,y,color){const layer=this.activeLayer;if(layer.locked)return;const target=this.getPixel(x,y);if(target.every((v,i)=>v===color[i]))return;const stack=[[x,y]],seen=new Uint8Array(this.width*this.height);while(stack.length){const [cx,cy]=stack.pop();if(cx<0||cy<0||cx>=this.width||cy>=this.height)continue;const n=cy*this.width+cx;if(seen[n])continue;seen[n]=1;const i=n*4;if(layer.pixels[i]!==target[0]||layer.pixels[i+1]!==target[1]||layer.pixels[i+2]!==target[2]||layer.pixels[i+3]!==target[3])continue;layer.pixels.set([...color,255],i);stack.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);}}
+  addLayer(){this.layers.splice(this.activeLayerIndex+1,0,this.makeLayer(`Слой ${this.layers.length+1}`));this.activeLayerIndex++;}
+  duplicateLayer(){const src=this.activeLayer;const copy=this.makeLayer(`${src.name} копия`);copy.visible=src.visible;copy.pixels.set(src.pixels);this.layers.splice(this.activeLayerIndex+1,0,copy);this.activeLayerIndex++;}
+  deleteLayer(){if(this.layers.length<=1)return;this.layers.splice(this.activeLayerIndex,1);this.activeLayerIndex=Math.max(0,this.activeLayerIndex-1);}
+  resize(w,h){const oldW=this.width,oldH=this.height;this.width=w;this.height=h;this.layers=this.layers.map(l=>{const n=this.makeLayer(l.name);n.visible=l.visible;n.locked=l.locked;for(let y=0;y<Math.min(oldH,h);y++)for(let x=0;x<Math.min(oldW,w);x++){const a=(y*oldW+x)*4,b=(y*w+x)*4;n.pixels.set(l.pixels.slice(a,a+4),b);}return n;});this.snapshot();}
+  compositeCanvas(){const c=document.createElement("canvas");c.width=this.width;c.height=this.height;const ctx=c.getContext("2d");for(const l of this.layers){if(!l.visible)continue;const image=new ImageData(new Uint8ClampedArray(l.pixels),this.width,this.height);const temp=document.createElement("canvas");temp.width=this.width;temp.height=this.height;temp.getContext("2d").putImageData(image,0,0);ctx.drawImage(temp,0,0);}return c;}
+  serialize(name,palette){return {format:"chibiki-studio",version:1,name,width:this.width,height:this.height,palette,layers:this.layers.map(l=>({name:l.name,visible:l.visible,locked:l.locked,pixels:Array.from(l.pixels)}))};}
+  load(data){if(data.format!=="chibiki-studio"||!data.width||!data.height||!Array.isArray(data.layers))throw new Error("Invalid project");this.width=data.width;this.height=data.height;this.layers=data.layers.map(l=>{const n=this.makeLayer(l.name);n.visible=l.visible!==false;n.locked=!!l.locked;n.pixels.set(l.pixels.slice(0,n.pixels.length));return n;});if(!this.layers.length)this.layers=[this.makeLayer("Слой 1")];this.activeLayerIndex=0;this.history=[];this.future=[];this.snapshot();}
+  snapshot(){if(!this.layers)return;const s={width:this.width,height:this.height,active:this.activeLayerIndex,layers:this.layers.map(l=>({name:l.name,visible:l.visible,locked:l.locked,pixels:Array.from(l.pixels)}))};const last=this.history[this.history.length-1];if(last&&JSON.stringify(last)===JSON.stringify(s))return;this.history.push(s);if(this.history.length>this.historyLimit)this.history.shift();this.future=[];}
+  restore(s){this.width=s.width;this.height=s.height;this.activeLayerIndex=s.active;this.layers=s.layers.map(l=>{const n=this.makeLayer(l.name);n.visible=l.visible;n.locked=l.locked;n.pixels.set(l.pixels);return n;});}
+  undo(){if(this.history.length<2)return;this.future.push(this.history.pop());this.restore(this.history[this.history.length-1]);}
+  redo(){if(!this.future.length)return;const s=this.future.pop();this.history.push(s);this.restore(s);}
+}

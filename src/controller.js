@@ -1,0 +1,15 @@
+import { hexToRgb } from "./utils.js";
+export class EditorController {
+  constructor(doc,renderer,wrap){this.doc=doc;this.renderer=renderer;this.wrap=wrap;this.tool="pencil";this.brushSize=1;this.drawing=false;this.start=null;this.last=null;this.color=[242,184,75];this.pointers=new Map();this.space=false;this.bind();}
+  setColor(hex){this.color=Object.values(hexToRgb(hex));}
+  setTool(t){this.tool=t;}
+  bind(){this.renderer.canvas.style.touchAction="none";this.renderer.canvas.addEventListener("pointerdown",e=>this.down(e));this.renderer.canvas.addEventListener("pointermove",e=>this.move(e));window.addEventListener("pointerup",e=>this.up(e));window.addEventListener("keydown",e=>{if(e.code==="Space")this.space=true;});window.addEventListener("keyup",e=>{if(e.code==="Space")this.space=false;});}
+  down(e){e.preventDefault();this.renderer.canvas.setPointerCapture?.(e.pointerId);this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(this.pointers.size>1){this.drawing=false;return;}const p=this.renderer.pointerToPixel(e);if(!p)return;if(this.tool==="eyedropper"){this.pick(p);return;}if(this.tool==="pan"||this.space)return;this.drawing=true;this.start=p;this.last=p;if(this.tool==="fill"){this.doc.floodFill(p.x,p.y,this.color);this.doc.snapshot();this.renderer.render();return;}this.paint(p);}
+  move(e){if(this.pointers.has(e.pointerId))this.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(!this.drawing)return;const p=this.renderer.pointerToPixel(e);if(!p)return;if(this.tool==="pencil"||this.tool==="eraser"){this.stroke(this.last,p);this.last=p;this.renderer.render();}}
+  up(e){if(!this.drawing)return;const p=this.renderer.pointerToPixel(e)||this.last;if(this.tool==="line"&&p)this.drawLine(this.start,p);if(this.tool==="rect"&&p)this.drawRect(this.start,p);this.drawing=false;this.doc.snapshot();this.renderer.render();this.pointers.delete(e.pointerId);}
+  paint(p){const erase=this.tool==="eraser";const r=Math.floor(this.brushSize/2);for(let y=-r;y<=r;y++)for(let x=-r;x<=r;x++)this.doc.setPixel(p.x+x,p.y+y,this.color,erase);}
+  stroke(a,b){let x0=a.x,y0=a.y,x1=b.x,y1=b.y;const dx=Math.abs(x1-x0),sx=x0<x1?1:-1,dy=-Math.abs(y1-y0),sy=y0<y1?1:-1;let err=dx+dy;while(true){this.paint({x:x0,y:y0});if(x0===x1&&y0===y1)break;const e2=2*err;if(e2>=dy){err+=dy;x0+=sx;}if(e2<=dx){err+=dx;y0+=sy;}}}
+  drawLine(a,b){this.stroke(a,b);}
+  drawRect(a,b){for(let x=Math.min(a.x,b.x);x<=Math.max(a.x,b.x);x++){this.paint({x,y:a.y});this.paint({x,y:b.y});}for(let y=Math.min(a.y,b.y);y<=Math.max(a.y,b.y);y++){this.paint({x:a.x,y});this.paint({x:b.x,y});}}
+  pick(p){const pixel=this.doc.getPixel(p.x,p.y);if(pixel[3]){const hex="#"+pixel.slice(0,3).map(v=>v.toString(16).padStart(2,"0")).join("");document.getElementById("colorInput").value=hex;document.getElementById("colorInput").dispatchEvent(new Event("input"));}}
+}

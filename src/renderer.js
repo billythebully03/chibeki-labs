@@ -1,0 +1,10 @@
+export class PixelRenderer {
+  constructor(canvas,overlay,doc){this.canvas=canvas;this.overlay=overlay;this.doc=doc;this.ctx=canvas.getContext("2d",{alpha:true});this.octx=overlay.getContext("2d");this.grid=true;this.checker=true;this.scale=8;this.displayWidth=doc.width*8;this.displayHeight=doc.height*8;this.resize();}
+  resize(){this.canvas.width=this.overlay.width=this.doc.width;this.canvas.height=this.overlay.height=this.doc.height;this.render();}
+  setDisplaySize(w,h,scale){this.displayWidth=w;this.displayHeight=h;this.scale=scale;const mat=this.canvas.parentElement;mat.style.width=`${w}px`;mat.style.height=`${h}px`;}
+  setGrid(v){this.grid=v;this.renderOverlay();}
+  setChecker(v){this.checker=v;this.render();}
+  render(){const {width,height,layers}=this.doc;this.ctx.clearRect(0,0,width,height);if(this.checker){this.ctx.fillStyle="#d0d1da";this.ctx.fillRect(0,0,width,height);for(let y=0;y<height;y+=2)for(let x=0;x<width;x+=2){if((x/2+y/2)%2===0){this.ctx.fillStyle="#b8bac7";this.ctx.fillRect(x,y,Math.min(2,width-x),Math.min(2,height-y));}}}for(const l of layers){if(!l.visible)continue;const temp=document.createElement("canvas");temp.width=width;temp.height=height;temp.getContext("2d").putImageData(new ImageData(new Uint8ClampedArray(l.pixels),width,height),0,0);this.ctx.drawImage(temp,0,0);}this.renderOverlay();}
+  renderOverlay(){const {width,height}=this.doc;this.octx.clearRect(0,0,width,height);if(this.grid&&this.scale>=6){this.octx.strokeStyle="rgba(40,42,58,.22)";this.octx.lineWidth=1/this.scale;this.octx.beginPath();for(let x=0;x<=width;x++){this.octx.moveTo(x,0);this.octx.lineTo(x,height);}for(let y=0;y<=height;y++){this.octx.moveTo(0,y);this.octx.lineTo(width,y);}this.octx.stroke();}}
+  pointerToPixel(e){const rect=this.canvas.getBoundingClientRect();const x=Math.floor((e.clientX-rect.left)/rect.width*this.doc.width),y=Math.floor((e.clientY-rect.top)/rect.height*this.doc.height);if(x<0||y<0||x>=this.doc.width||y>=this.doc.height)return null;return{x,y};}
+}
