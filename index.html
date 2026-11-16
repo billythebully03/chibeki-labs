@@ -1,138 +1,50 @@
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-  <meta name="theme-color" content="#171923">
-  <title>CHIBIKI STUDIO</title>
-  <link rel="stylesheet" href="./src/styles.css">
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="theme-color" content="#11121b"><title>CHIBIKI STUDIO</title><link rel="stylesheet" href="./src/styles.css">
 </head>
 <body>
-  <div class="app-shell">
-    <header class="topbar">
-      <div class="brand"><span class="brand-mark">✳</span><span>CHIBIKI <b>STUDIO</b></span><small>PIXEL WORKSHOP</small></div>
-      <div class="top-actions">
-        <button id="undoBtn" class="icon-btn" title="Отменить">↶</button>
-        <button id="redoBtn" class="icon-btn" title="Повторить">↷</button>
-        <button id="newBtn" class="text-btn">Новый</button>
-        <button id="saveBtn" class="primary-btn">Сохранить</button>
-        <button id="menuBtn" class="icon-btn" title="Меню">⋯</button>
-      </div>
-    </header>
+<div class="app-shell" id="appShell">
+  <header class="topbar">
+    <button class="icon-btn back-btn" id="menuBtn" aria-label="Меню">‹</button>
+    <button class="project-title" id="renameBtn"><span class="project-icon">▧</span><span id="projectNameLabel">Чибик</span><span class="chevron">⌄</span></button>
+    <div class="top-actions"><button class="icon-btn" id="undoBtn" aria-label="Отменить">↶</button><button class="icon-btn" id="redoBtn" aria-label="Повторить">↷</button><button class="icon-btn export-top" id="saveBtn" aria-label="Экспорт">⇧</button></div>
+  </header>
+  <main class="workspace">
+    <aside class="tool-rail" aria-label="Инструменты">
+      <button class="tool active" data-tool="pencil" title="Карандаш"><span>✎</span></button>
+      <button class="tool" data-tool="eraser" title="Ластик"><span>◇</span></button>
+      <button class="tool" data-tool="rect" title="Прямоугольник"><span>▧</span></button>
+      <button class="tool" data-tool="fill" title="Заливка"><span>◩</span></button>
+      <button class="tool" data-tool="eyedropper" title="Пипетка"><span>⌁</span></button>
+      <button class="tool" data-tool="line" title="Линия"><span>／</span></button>
+      <button class="tool" data-tool="pan" title="Перемещение"><span>✥</span></button>
+      <button class="tool" id="gridBtn" title="Сетка"><span>▦</span></button>
+      <button class="tool" id="moreToolsBtn" title="Дополнительно"><span>···</span></button>
+    </aside>
+    <section class="stage">
+      <div class="canvas-wrap" id="canvasWrap"><div class="canvas-mat" id="canvasMat"><canvas id="artCanvas" width="32" height="48" aria-label="Пиксельный холст"></canvas><canvas id="overlayCanvas" width="32" height="48"></canvas></div></div>
+      <div class="statusbar"><span id="coordsLabel">x: — y: —</span><span id="dimensionLabel">32 × 48 px</span><span id="layerStatus">Слой 1 / 1</span></div>
+    </section>
+    <aside class="zoom-rail" aria-label="Масштаб"><button class="zoom-button" id="zoomIn">＋</button><input id="zoomSlider" type="range" min="1" max="32" value="8" orient="vertical" aria-label="Масштаб"><button class="zoom-button" id="zoomOut">−</button><button class="zoom-readout" id="fitBtn">800%</button></aside>
+  </main>
+  <footer class="bottom-dock">
+    <section class="layer-tray">
+      <button class="play-button" id="playStub" title="Предпросмотр кадров">▶</button>
+      <div class="layer-strip" id="layerStrip"><button class="layer-card active" id="activeLayerCard"><span class="mini-checker"><span class="mini-art">▧</span></span><b>1</b></button><button class="add-frame" id="addLayerBtn" aria-label="Добавить слой">＋</button></div>
+      <button class="layers-button" id="layersOpen" title="Слои">▱</button>
+    </section>
+    <section class="palette-tray"><div class="swatches" id="swatches"></div><button class="add-palette" id="addColorBtn" aria-label="Добавить цвет">＋</button><button class="palette-expand" id="paletteExpand" aria-label="Показать палитру">⌄</button></section>
+  </footer>
+</div>
 
-    <main class="workspace">
-      <aside class="tool-rail" aria-label="Инструменты">
-        <button class="tool active" data-tool="pencil" title="Карандаш (P)"><span>✎</span><em>Карандаш</em></button>
-        <button class="tool" data-tool="eraser" title="Ластик (E)"><span>▱</span><em>Ластик</em></button>
-        <button class="tool" data-tool="fill" title="Заливка (G)"><span>▨</span><em>Заливка</em></button>
-        <button class="tool" data-tool="eyedropper" title="Пипетка (I)"><span>⌖</span><em>Пипетка</em></button>
-        <div class="rail-divider"></div>
-        <button class="tool" data-tool="line" title="Линия (L)"><span>／</span><em>Линия</em></button>
-        <button class="tool" data-tool="rect" title="Прямоугольник (U)"><span>□</span><em>Фигура</em></button>
-        <button class="tool" data-tool="pan" title="Перемещение холста (Space)"><span>✥</span><em>Холст</em></button>
-      </aside>
-
-      <section class="stage">
-        <div class="stage-head">
-          <div><span class="live-dot"></span><span id="projectNameLabel">Безымянный чибик</span><span class="muted" id="dimensionLabel">32 × 48 px</span></div>
-          <div class="stage-actions">
-            <button id="zoomOut" class="mini-btn">−</button><span id="zoomLabel">800%</span><button id="zoomIn" class="mini-btn">+</button>
-            <button id="fitBtn" class="mini-btn">Вписать</button>
-            <button id="gridBtn" class="mini-btn selected">Сетка</button>
-          </div>
-        </div>
-        <div class="canvas-wrap" id="canvasWrap">
-          <div class="canvas-mat" id="canvasMat">
-            <canvas id="artCanvas" width="32" height="48" aria-label="Пиксельный холст"></canvas>
-            <canvas id="overlayCanvas" width="32" height="48"></canvas>
-          </div>
-        </div>
-        <div class="statusbar">
-          <span id="coordsLabel">x: —  y: —</span><span id="statusMessage">Готово к рисованию</span><span id="layerStatus">Слой 1 / 1</span>
-        </div>
-      </section>
-
-      <aside class="inspector" id="inspector">
-        <div class="panel-tabs">
-          <button class="panel-tab active" data-panel="palette">Цвета</button>
-          <button class="panel-tab" data-panel="layers">Слои</button>
-          <button class="panel-tab" data-panel="settings">Холст</button>
-        </div>
-        <section class="panel-content" id="palettePanel">
-          <div class="section-title">Текущий цвет <span id="hexLabel">#F2B84B</span></div>
-          <div class="color-current">
-            <input id="colorInput" type="color" value="#f2b84b" aria-label="Выбрать цвет">
-            <div class="color-values"><strong id="rgbLabel">RGB 242, 184, 75</strong><small>Нажми, чтобы открыть палитру системы</small></div>
-          </div>
-          <div class="section-title">Палитра Chibiki <button id="addColorBtn" class="inline-add">＋</button></div>
-          <div class="swatches" id="swatches"></div>
-          <div class="palette-actions">
-            <button id="extractBtn" class="soft-btn">Взять цвета с фото</button>
-            <button id="savePaletteBtn" class="soft-btn">Сохранить палитру</button>
-            <input id="imageInput" type="file" accept="image/*" hidden>
-          </div>
-          <div class="section-title">Быстрые оттенки</div>
-          <div id="shades" class="swatches shades"></div>
-          <p class="hint">Подсказка: удерживай палец на холсте, чтобы временно взять цвет пипеткой.</p>
-        </section>
-
-        <section class="panel-content hidden" id="layersPanel">
-          <div class="section-title">Слои <button id="addLayerBtn" class="inline-add">＋</button></div>
-          <div id="layerList" class="layer-list"></div>
-          <div class="layer-actions">
-            <button id="duplicateLayerBtn" class="soft-btn">Дублировать</button>
-            <button id="deleteLayerBtn" class="soft-btn danger-soft">Удалить</button>
-          </div>
-          <p class="hint">Слои экспортируются отдельно в проектный JSON. Для PNG они объединяются.</p>
-        </section>
-
-        <section class="panel-content hidden" id="settingsPanel">
-          <div class="section-title">Размер холста</div>
-          <div class="dimension-presets">
-            <button data-size="16x16">16²</button><button data-size="32x32">32²</button>
-            <button data-size="32x48" class="selected">32×48</button><button data-size="64x64">64²</button>
-            <button data-size="96x96">96²</button>
-          </div>
-          <div class="field-row"><label>Ширина</label><input id="widthInput" type="number" min="8" max="256" value="32"></div>
-          <div class="field-row"><label>Высота</label><input id="heightInput" type="number" min="8" max="256" value="48"></div>
-          <button id="resizeBtn" class="soft-btn full">Изменить размер</button>
-          <div class="section-title spaced">Параметры кисти</div>
-          <div class="field-row"><label>Размер кисти</label><strong id="brushSizeLabel">1 px</strong></div>
-          <input id="brushSize" type="range" min="1" max="8" value="1">
-          <div class="field-row"><label>Показывать сетку</label><input id="gridToggle" type="checkbox" checked></div>
-          <div class="field-row"><label>Прозрачный фон</label><input id="checkerToggle" type="checkbox" checked></div>
-          <div class="section-title spaced">Экспорт</div>
-          <button id="exportPngBtn" class="soft-btn full">Экспортировать PNG</button>
-          <button id="exportProjectBtn" class="soft-btn full">Экспорт проекта (.chibiki)</button>
-          <label class="soft-btn full import-label">Открыть проект<input id="projectInput" type="file" accept=".chibiki,.json,application/json" hidden></label>
-        </section>
-      </aside>
-    </main>
-    <nav class="mobile-tools" aria-label="Быстрые инструменты">
-      <button class="tool active" data-tool="pencil"><span>✎</span><small>Рисовать</small></button>
-      <button class="tool" data-tool="eraser"><span>▱</span><small>Ластик</small></button>
-      <button class="tool" data-tool="fill"><span>▨</span><small>Заливка</small></button>
-      <button class="tool" data-tool="eyedropper"><span>⌖</span><small>Пипетка</small></button>
-      <button id="mobilePanelBtn"><span>☷</span><small>Панель</small></button>
-    </nav>
-  </div>
-
-  <dialog id="newDialog" class="dialog">
-    <form method="dialog" id="newForm">
-      <div class="dialog-head"><strong>Новый проект</strong><button class="close-dialog" value="cancel">×</button></div>
-      <label>Название<input id="newName" value="Мой чибик" maxlength="40"></label>
-      <div class="two-fields"><label>Ширина<input id="newWidth" type="number" min="8" max="256" value="32"></label><label>Высота<input id="newHeight" type="number" min="8" max="256" value="48"></label></div>
-      <button id="createProjectBtn" class="primary-btn dialog-submit" value="default">Создать холст</button>
-    </form>
-  </dialog>
-  <dialog id="menuDialog" class="dialog compact-dialog">
-    <div class="dialog-head"><strong>CHIBIKI STUDIO</strong><button class="close-dialog" id="closeMenu">×</button></div>
-    <button id="menuNew" class="menu-item">＋ Новый проект</button>
-    <button id="menuImport" class="menu-item">↥ Импорт изображения</button>
-    <button id="menuExport" class="menu-item">⇩ Экспорт PNG</button>
-    <p class="hint">Локальная мастерская. Работы хранятся в этом браузере, пока ты не экспортируешь проект.</p>
-  </dialog>
-  <div id="toast" class="toast" role="status"></div>
-  <script type="module" src="./src/app.js"></script>
-</body>
-</html>
+<dialog id="newDialog" class="dialog"><form method="dialog"><div class="dialog-head"><strong>Новый проект</strong><button class="close-dialog" value="cancel">×</button></div><label>Название<input id="newName" value="Чибик" maxlength="40"></label><div class="two-fields"><label>Ширина<input id="newWidth" type="number" min="8" max="256" value="32"></label><label>Высота<input id="newHeight" type="number" min="8" max="256" value="48"></label></div><button id="createProjectBtn" class="primary-btn dialog-submit" value="default">Создать холст</button></form></dialog>
+<dialog id="renameDialog" class="dialog"><form method="dialog"><div class="dialog-head"><strong>Название проекта</strong><button class="close-dialog" value="cancel">×</button></div><label>Имя<input id="renameInput" maxlength="40"></label><button id="renameSave" class="primary-btn dialog-submit" value="default">Сохранить</button></form></dialog>
+<dialog id="menuDialog" class="dialog compact-dialog"><div class="dialog-head"><strong>CHIBIKI STUDIO</strong><button class="close-dialog" id="closeMenu">×</button></div><button id="menuNew" class="menu-item">＋ Новый проект</button><button id="menuImport" class="menu-item">↥ Открыть проект .chib</button><button id="menuPng" class="menu-item">⇩ Экспорт PNG</button><button id="menuExport" class="menu-item">⇧ Экспорт проекта .chib</button><p class="hint">Проекты автоматически сохраняются в этом браузере. Для переноса используй экспорт .chib.</p></dialog>
+<dialog id="paletteDialog" class="dialog compact-dialog"><div class="dialog-head"><strong>Палитра</strong><button class="close-dialog" id="closePalette">×</button></div><div class="color-current"><input id="colorInput" type="color" value="#f2b84b"><div class="color-values"><strong id="hexLabel">#F2B84B</strong><small id="rgbLabel">RGB 242, 184, 75</small></div></div><div class="section-title">Оттенки</div><div id="shades" class="swatches shades"></div><div class="palette-actions"><button id="extractBtn" class="soft-btn">Цвета с фото</button><button id="savePaletteBtn" class="soft-btn">Сохранить</button><input id="imageInput" type="file" accept="image/*" hidden></div></dialog>
+<dialog id="layersDialog" class="dialog compact-dialog"><div class="dialog-head"><strong>Слои</strong><button class="close-dialog" id="closeLayers">×</button></div><div id="layerList" class="layer-list"></div><div class="layer-actions"><button id="duplicateLayerBtn" class="soft-btn">Дублировать</button><button id="deleteLayerBtn" class="soft-btn danger-soft">Удалить</button></div></dialog>
+<dialog id="settingsDialog" class="dialog"><div class="dialog-head"><strong>Параметры холста</strong><button class="close-dialog" id="closeSettings">×</button></div><div class="dimension-presets"><button data-size="16x16">16²</button><button data-size="32x32">32²</button><button data-size="32x48" class="selected">32×48</button><button data-size="64x64">64²</button><button data-size="96x96">96²</button></div><div class="field-row"><label>Ширина</label><input id="widthInput" type="number" min="8" max="256" value="32"></div><div class="field-row"><label>Высота</label><input id="heightInput" type="number" min="8" max="256" value="48"></div><div class="field-row"><label>Размер кисти</label><strong id="brushSizeLabel">1 px</strong></div><input id="brushSize" type="range" min="1" max="8" value="1"><div class="field-row"><label>Показывать сетку</label><input id="gridToggle" type="checkbox" checked></div><div class="field-row"><label>Шахматный фон</label><input id="checkerToggle" type="checkbox" checked></div><button id="resizeBtn" class="soft-btn full">Применить размер</button></dialog>
+<input id="projectInput" type="file" accept=".chib,.json,application/json" hidden><div id="toast" class="toast" role="status"></div>
+<script type="module" src="./src/app.js"></script>
+</body></html>
